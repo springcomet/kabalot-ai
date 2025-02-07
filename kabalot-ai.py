@@ -230,24 +230,30 @@ def load_config(config_file):
         
     return config
 
+def get_dropbox_token(creds_file):
+    """Read Dropbox access token from credentials file."""
+    try:
+        with open(creds_file, 'r', encoding='utf-8') as cred_file:
+            creds = json.load(cred_file)
+            dropbox_access_token = creds.get("dropbox")
+            if not dropbox_access_token:
+                raise ValueError("Dropbox access token not found in credentials file.")
+            print("dropbox token: ", dropbox_access_token[-4:])
+            return dropbox_access_token
+    except FileNotFoundError:
+        raise FileNotFoundError(f"Credentials file not found: {creds_file}")
+    except json.JSONDecodeError:
+        raise ValueError(f"Invalid JSON in credentials file: {creds_file}")
+
 # Example usage
 api_key = os.getenv("OPENAI_API_KEY")
 client = OpenAI(api_key=api_key)
-write_path= "./out/data.json"
 config_file = './config/kabalot.json'
 creds_file='./secrets/secrets.json'
 
 # Read JSON file to get the Dropbox path
 config = load_config(config_file)
-# input_dirs = config["input_dirs"]
-# upload_path = config["upload_path"]
-# dropbox_path = config["dropbox_path"]
-with open(creds_file, 'r', encoding='utf-8') as cred_file:
-    creds = json.load(cred_file)
-    dropbox_access_token = creds.get("dropbox")
-    if not dropbox_access_token:
-        raise ValueError("Dropbox access token not found in environment variables.")
-    print("dropbox token: ", dropbox_access_token[-4:])
-    print("config: ", config)
-    config["dropbox_access_token"] = dropbox_access_token
+dropbox_access_token = get_dropbox_token(creds_file)
+print("config: ", config)
+config["dropbox_access_token"] = dropbox_access_token
 main_extract(config)
