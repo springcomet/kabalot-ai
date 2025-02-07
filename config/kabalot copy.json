@@ -1,0 +1,9 @@
+{
+    "dropbox_path": "/",
+    "input_dirs": [
+        "./in",
+        "C:/_/Users/aviv/Dropbox/docs/finance/IncomeTax/tax2024/reciets"
+    ],
+    "output_dir": "./out",
+    "upload_path": "/25/"
+}
