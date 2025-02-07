@@ -66,6 +66,10 @@ def jpg_to_base64_images(jpg_file_path):
     return base64_images
 
 def extract_invoice_data(base64_image):
+    j = {'Details of Services Charged': [{'City': 'הרצליה', 'Zone': 'אזור התעשיה', 'License Plate': '62-728-55', 'Start Time': '15/01/2024 08:50', 'To Time': '15/01/2024 10:14', 'Minutes': '83:19', 'Charge': '8.61'}, {'City': 'רמת גן', 'Zone': 'הבימה ת\"א חניון הבימה והיכל התרבות', 'License Plate': '91-600-11', 'Start Time': '26/12/2023 14:41', 'To Time': '26/12/2023 16:06', 'Minutes': '84:46', 'Charge': '8.90'}, {'City': 'תל-אביב', 'Zone': 'מרכז העיר 17:00-חניה חופשית או חניה בתשלום באזור', 'License Plate': '91-600-11', 'Start Time': '24/01/2024 07:57', 'To Time': '24/01/2024 09:38', 'Minutes': '38:04', 'Charge': '7.87'}], 'invoice_summary': {'total_charge': '25.38', 'date_of_invoice': '3/9/24', 'invoice_number': None, 'expense_type': 'vehicle'}}
+    return json.dumps(j, ensure_ascii=False, indent=4)
+    
+    
     system_prompt = f"""
     You are an OCR-like data extraction tool that extracts hotel invoice data from PDFs.
    
@@ -124,7 +128,6 @@ def extract_invoice_data(base64_image):
     return response.choices[0].message.content
 
 def extract_from_multiple_pages(file_path):
-    #return [{'Details of Services Charged': [{'City': 'הרצליה', 'Zone': 'אזור התעשיה', 'License Plate': '62-728-55', 'Start Time': '15/01/2024 08:50', 'To Time': '15/01/2024 10:14', 'Minutes': '83:19', 'Charge': '8.61'}, {'City': 'רמת גן', 'Zone': 'הבימה ת"א חניון הבימה והיכל התרבות', 'License Plate': '91-600-11', 'Start Time': '26/12/2023 14:41', 'To Time': '26/12/2023 16:06', 'Minutes': '84:46', 'Charge': '8.90'}, {'City': 'תל-אביב', 'Zone': 'מרכז העיר 17:00-חניה חופשית או חניה בתשלום באזור', 'License Plate': '91-600-11', 'Start Time': '24/01/2024 07:57', 'To Time': '24/01/2024 09:38', 'Minutes': '38:04', 'Charge': '7.87'}], 'invoice_summary': {'total_charge': '25.38', 'date_of_invoice': '3/9/24', 'invoice_number': None, 'expense_type': 'vehicle'}}]
     mime_type, _ = mimetypes.guess_type(file_path)
     print(f"File type: {mime_type}")
     if mime_type == 'application/pdf':
@@ -138,6 +141,12 @@ def extract_from_multiple_pages(file_path):
     for base64_image in base64_images:
         invoice_json = extract_invoice_data(base64_image)
         invoice_data = json.loads(invoice_json)
+        
+        # Add input file path to invoice_summary
+        if 'invoice_summary' not in invoice_data:
+            invoice_data['invoice_summary'] = {}
+        invoice_data['invoice_summary']['input_file'] = file_path
+        
         entire_invoice.append(invoice_data)
     return entire_invoice
 
@@ -150,9 +159,10 @@ def main_extract(config):
             file_path = os.path.join(input_dir, filename)
             if os.path.isfile(file_path):
                 invoice = extract_from_multiple_pages(file_path)
+                link = upload_file_to_dropbox(config, file_path)
+                invoice[0]['invoice_summary']['dropbox_link'] = link
                 print(invoice)
                 write_invoice(config, invoice)
-                #upload_file_to_dropbox(config, file_path)
 
 def get_safe_filename(invoice_data):
     # Handle both single invoice and list of invoices
@@ -175,14 +185,15 @@ def write_invoice(config, invoice):
     output_dir = config["output_dir"]
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
-    invoice_number = get_safe_filename(invoice)
-    filename  = invoice_number    
+    filename = get_safe_filename(invoice)
     output_file = os.path.join(output_dir, filename)
     with open(output_file, 'w', encoding='utf-8') as f:
         json.dump(invoice, f, ensure_ascii=False, indent=4)
     print(f"Data written to {output_file}")
 
-def upload_file_to_dropbox(config, file):
+def upload_file_to_dropbox(config, filename):
+    return "https://dropbox.com/link"   
+   
     # Read credentials from creds file
    
     # Initialize Dropbox client
