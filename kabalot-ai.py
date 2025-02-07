@@ -90,14 +90,17 @@ def extract_invoice_data(base64_image):
 
     9. Please maintain the table structure of the charges, i.e. capture all of the rows and columns in the JSON object.
 
-    10. if the invoice is a vihicle related purchase the expcted vihicle number is 9160011
+    10. if the invoice is a vehicle related purchase the expected vehicle number is 9160011
 
-    11. add a last group named invoice_summary which repeates the values of the total charge, date of invoice, and invoice number. 
+    11. try to deduce if the type of invoice, i.e. what is it for.
+    use the following possible expense types and mark them both in english and with the code in braces:
+    parking (p), gas (g), other vehicle expenses (c), clothing (b), office (m), supplies and equipment (s),
+    maintenance and repair (9). If you can't deduce the expense type, mark it as "?". 
+    
+    12. add a last group named invoice_summary which repeats the values of the total charge, date of invoice, and invoice number. 
     these values should also be included in the relevant group and repeated in this group. 
     unlike other groups, in this group the key names should be in english as specified here.
-
-    12. try to deduce if the invoice is for vehicle expences, office expences, clothing expences, 
-    or food expences and include this in the JSON object in the invoice_summary group.
+    add to the group the expense type and type code.
     """
     
     response = client.chat.completions.create(
@@ -121,7 +124,7 @@ def extract_invoice_data(base64_image):
     return response.choices[0].message.content
 
 def extract_from_multiple_pages(file_path):
-    return [{'Details of Services Charged': [{'City': 'הרצליה', 'Zone': 'אזור התעשיה', 'License Plate': '62-728-55', 'Start Time': '15/01/2024 08:50', 'To Time': '15/01/2024 10:14', 'Minutes': '83:19', 'Charge': '8.61'}, {'City': 'רמת גן', 'Zone': 'הבימה ת"א חניון הבימה והיכל התרבות', 'License Plate': '91-600-11', 'Start Time': '26/12/2023 14:41', 'To Time': '26/12/2023 16:06', 'Minutes': '84:46', 'Charge': '8.90'}, {'City': 'תל-אביב', 'Zone': 'מרכז העיר 17:00-חניה חופשית או חניה בתשלום באזור', 'License Plate': '91-600-11', 'Start Time': '24/01/2024 07:57', 'To Time': '24/01/2024 09:38', 'Minutes': '38:04', 'Charge': '7.87'}], 'invoice_summary': {'total_charge': '25.38', 'date_of_invoice': '3/9/24', 'invoice_number': None, 'expense_type': 'vehicle'}}]
+    #return [{'Details of Services Charged': [{'City': 'הרצליה', 'Zone': 'אזור התעשיה', 'License Plate': '62-728-55', 'Start Time': '15/01/2024 08:50', 'To Time': '15/01/2024 10:14', 'Minutes': '83:19', 'Charge': '8.61'}, {'City': 'רמת גן', 'Zone': 'הבימה ת"א חניון הבימה והיכל התרבות', 'License Plate': '91-600-11', 'Start Time': '26/12/2023 14:41', 'To Time': '26/12/2023 16:06', 'Minutes': '84:46', 'Charge': '8.90'}, {'City': 'תל-אביב', 'Zone': 'מרכז העיר 17:00-חניה חופשית או חניה בתשלום באזור', 'License Plate': '91-600-11', 'Start Time': '24/01/2024 07:57', 'To Time': '24/01/2024 09:38', 'Minutes': '38:04', 'Charge': '7.87'}], 'invoice_summary': {'total_charge': '25.38', 'date_of_invoice': '3/9/24', 'invoice_number': None, 'expense_type': 'vehicle'}}]
     mime_type, _ = mimetypes.guess_type(file_path)
     print(f"File type: {mime_type}")
     if mime_type == 'application/pdf':
