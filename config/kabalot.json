@@ -4,5 +4,6 @@
         "./in"
    ],
     "output_dir": "./out",
-    "upload_path": "/25/"
+    "upload_path": "/25/",
+    "csv_path": "./out/kabalot.csv"
 }

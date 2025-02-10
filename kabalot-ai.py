@@ -66,8 +66,8 @@ def jpg_to_base64_images(jpg_file_path):
     return base64_images
 
 def extract_invoice_data(base64_image):
-    j = {'Details of Services Charged': [{'City': 'הרצליה', 'Zone': 'אזור התעשיה', 'License Plate': '62-728-55', 'Start Time': '15/01/2024 08:50', 'To Time': '15/01/2024 10:14', 'Minutes': '83:19', 'Charge': '8.61'}, {'City': 'רמת גן', 'Zone': 'הבימה ת\"א חניון הבימה והיכל התרבות', 'License Plate': '91-600-11', 'Start Time': '26/12/2023 14:41', 'To Time': '26/12/2023 16:06', 'Minutes': '84:46', 'Charge': '8.90'}, {'City': 'תל-אביב', 'Zone': 'מרכז העיר 17:00-חניה חופשית או חניה בתשלום באזור', 'License Plate': '91-600-11', 'Start Time': '24/01/2024 07:57', 'To Time': '24/01/2024 09:38', 'Minutes': '38:04', 'Charge': '7.87'}], 'invoice_summary': {'total_charge': '25.38', 'date_of_invoice': '3/9/24', 'invoice_number': None, 'expense_type': 'vehicle'}}
-    return json.dumps(j, ensure_ascii=False, indent=4)
+    # j = {'Details of Services Charged': [{'City': 'הרצליה', 'Zone': 'אזור התעשיה', 'License Plate': '62-728-55', 'Start Time': '15/01/2024 08:50', 'To Time': '15/01/2024 10:14', 'Minutes': '83:19', 'Charge': '8.61'}, {'City': 'רמת גן', 'Zone': 'הבימה ת\"א חניון הבימה והיכל התרבות', 'License Plate': '91-600-11', 'Start Time': '26/12/2023 14:41', 'To Time': '26/12/2023 16:06', 'Minutes': '84:46', 'Charge': '8.90'}, {'City': 'תל-אביב', 'Zone': 'מרכז העיר 17:00-חניה חופשית או חניה בתשלום באזור', 'License Plate': '91-600-11', 'Start Time': '24/01/2024 07:57', 'To Time': '24/01/2024 09:38', 'Minutes': '38:04', 'Charge': '7.87'}], 'invoice_summary': {'total_charge': '25.38', 'date_of_invoice': '3/9/24', 'invoice_number': None, 'expense_type': 'vehicle', 'type_code':'c'}}
+    # return json.dumps(j, ensure_ascii=False, indent=4)
     
     
     system_prompt = f"""
@@ -158,11 +158,17 @@ def main_extract(config):
             print(f"Extracting data from {filename}")
             file_path = os.path.join(input_dir, filename)
             if os.path.isfile(file_path):
-                invoice = extract_from_multiple_pages(file_path)
-                link = upload_file_to_dropbox(config, file_path)
-                invoice[0]['invoice_summary']['dropbox_link'] = link
-                print(invoice)
-                write_invoice(config, invoice)
+                try:
+                    invoice = extract_from_multiple_pages(file_path)
+                    link = upload_file_to_dropbox(config, file_path)
+                    print(invoice)
+                    invoice[0]['invoice_summary']['dropbox_link'] = link
+                    print(invoice)
+                    write_invoice(config, invoice)
+                    write_invoice_summary_to_csv(config, invoice)  # Add this line
+                except Exception as e:
+                    print(f"Error processing file {filename}: {str(e)}")
+                    continue
 
 def get_safe_filename(invoice_data):
     # Handle both single invoice and list of invoices
@@ -190,6 +196,7 @@ def write_invoice(config, invoice):
     with open(output_file, 'w', encoding='utf-8') as f:
         json.dump(invoice, f, ensure_ascii=False, indent=4)
     print(f"Data written to {output_file}")
+    
 
 def upload_file_to_dropbox(config, filename):
     return "https://dropbox.com/link"   
@@ -230,7 +237,8 @@ def load_config(config_file):
         "output_dir": "Output directory",
         "input_dirs": "Input directories",
         "upload_path": "Upload path",
-        "dropbox_path": "Dropbox path"
+        "dropbox_path": "Dropbox path",
+        "csv_path": "CSV output path"  # Add this line
     }
     
     with open(config_file, 'r', encoding='utf-8') as f:
@@ -258,6 +266,47 @@ def get_dropbox_token(creds_file):
         raise FileNotFoundError(f"Credentials file not found: {creds_file}")
     except json.JSONDecodeError:
         raise ValueError(f"Invalid JSON in credentials file: {creds_file}")
+
+def write_invoice_summary_to_csv(config, invoice_data):
+    """Write invoice summary data to CSV file."""
+    import csv
+    import os
+
+    csv_path = config["csv_path"]
+    file_exists = os.path.isfile(csv_path)
+    
+    try:
+        # Get the invoice summary from the first page if it's a list
+        invoice_dict = invoice_data[0] if isinstance(invoice_data, list) else invoice_data
+        summary = invoice_dict.get('invoice_summary', {})
+        
+        # Define the fields we want to write
+        fields = ['invoice_number', 'date_of_invoice', 'total_charge', 
+                 'expense_type', 'input_file', 'dropbox_link', 'type_code']
+        
+        # Create directory if it doesn't exist
+        os.makedirs(os.path.dirname(csv_path), exist_ok=True)
+        
+        # Open file in append mode if exists, write mode if new
+        mode = 'a' if file_exists else 'w'
+        print(f"Writing to CSV file: {csv_path}")
+        
+        with open(csv_path, mode, newline='', encoding='utf-8-sig') as f:
+            writer = csv.DictWriter(f, fieldnames=fields)
+            
+            # Write header only if file is new
+            if not file_exists:
+                writer.writeheader()
+                print("Wrote CSV header")
+            
+            # Extract only the fields we want
+            row = {field: summary.get(field, '') for field in fields}
+            writer.writerow(row)
+            print(f"Wrote invoice summary for invoice {row.get('invoice_number', 'unknown')}")
+            
+    except Exception as e:
+        print(f"Error writing to CSV: {str(e)}")
+        raise
 
 # Example usage
 api_key = os.getenv("OPENAI_API_KEY")
