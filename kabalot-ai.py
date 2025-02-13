@@ -66,8 +66,10 @@ def jpg_to_base64_images(jpg_file_path):
     return base64_images
 
 def extract_invoice_data(base64_image):
-    # j = {'Details of Services Charged': [{'City': 'הרצליה', 'Zone': 'אזור התעשיה', 'License Plate': '62-728-55', 'Start Time': '15/01/2024 08:50', 'To Time': '15/01/2024 10:14', 'Minutes': '83:19', 'Charge': '8.61'}, {'City': 'רמת גן', 'Zone': 'הבימה ת\"א חניון הבימה והיכל התרבות', 'License Plate': '91-600-11', 'Start Time': '26/12/2023 14:41', 'To Time': '26/12/2023 16:06', 'Minutes': '84:46', 'Charge': '8.90'}, {'City': 'תל-אביב', 'Zone': 'מרכז העיר 17:00-חניה חופשית או חניה בתשלום באזור', 'License Plate': '91-600-11', 'Start Time': '24/01/2024 07:57', 'To Time': '24/01/2024 09:38', 'Minutes': '38:04', 'Charge': '7.87'}], 'invoice_summary': {'total_charge': '25.38', 'date_of_invoice': '3/9/24', 'invoice_number': None, 'expense_type': 'vehicle', 'type_code':'c'}}
-    # return json.dumps(j, ensure_ascii=False, indent=4)
+    if test_config and test_config.get("mock_openai"):
+        print("Using mock OpenAI response")
+        j = {'Details of Services Charged': [{'City': 'הרצליה', 'Zone': 'אזור התעשיה', 'License Plate': '62-728-55', 'Start Time': '15/01/2024 08:50', 'To Time': '15/01/2024 10:14', 'Minutes': '83:19', 'Charge': '8.61'}, {'City': 'רמת גן', 'Zone': 'הבימה ת\"א חניון הבימה והיכל התרבות', 'License Plate': '91-600-11', 'Start Time': '26/12/2023 14:41', 'To Time': '26/12/2023 16:06', 'Minutes': '84:46', 'Charge': '8.90'}, {'City': 'תל-אביב', 'Zone': 'מרכז העיר 17:00-חניה חופשית או חניה בתשלום באזור', 'License Plate': '91-600-11', 'Start Time': '24/01/2024 07:57', 'To Time': '24/01/2024 09:38', 'Minutes': '38:04', 'Charge': '7.87'}], 'invoice_summary': {'total_charge': '25.38', 'date_of_invoice': '3/9/24', 'invoice_number': None, 'expense_type': 'vehicle', 'type_code':'c'}}
+        return json.dumps(j, ensure_ascii=False, indent=4)
     
     
     system_prompt = f"""
@@ -201,8 +203,10 @@ def write_invoice(config, invoice):
     
 
 def upload_file_to_dropbox(config, filename):
-    return "https://dropbox.com/link"   
-   
+    if test_config and test_config.get("mock_dropbox"):
+        print("Skipping Dropbox upload (mocked)")
+        return "https://dropbox.com/link"
+
     # Read credentials from creds file
    
     # Initialize Dropbox client
@@ -321,9 +325,16 @@ config = load_config(config_file)
 dropbox_access_token = get_dropbox_token(creds_file)
 print("config: ", config)
 config["dropbox_access_token"] = dropbox_access_token
-testfiles = [r"C:\Users\aviv\source\repos\kabalot-ai\in - Copy\IMG-20230401-WA0003.jpg"]
-if testfiles:
-    for testfile in testfiles:
-        process_file(config, testfile)
+
+test_config = {
+    "test_files": [r"C:\Users\aviv\source\repos\kabalot-ai\in - Copy\IMG-20230401-WA0003.jpg"],
+    "mock_openai": True,
+    "mock_dropbox": True
+}
+
+if test_config and test_config.get("test_files"):
+    print("Processing test files")
+    for test_file in test_config["test_files"]:
+        process_file(config, test_file)
 else:
     main_extract(config)
