@@ -71,7 +71,7 @@ def extract_invoice_data(base64_image):
     
     
     system_prompt = f"""
-    You are an OCR-like data extraction tool that extracts hotel invoice data from PDFs.
+    You are an OCR-like data extraction tool that extracts invoice data from PDFs.
    
     1. Please extract the data in this invoice, grouping data according to theme/sub groups, and then output into JSON.
 
@@ -99,7 +99,7 @@ def extract_invoice_data(base64_image):
     11. try to deduce if the type of invoice, i.e. what is it for.
     use the following possible expense types and mark them both in english and with the code in braces:
     parking (p), gas (g), other vehicle expenses (c), clothing (b), office (m), supplies and equipment (s),
-    maintenance and repair (9). If you can't deduce the expense type, mark it as "?". 
+    maintenance and repair (9), food and refreshment (f). If you can't deduce the expense type, mark it as "?". 
     
     12. add a last group named invoice_summary which repeats the values of the total charge, date of invoice, and invoice number. 
     these values should also be included in the relevant group and repeated in this group. 
@@ -157,18 +157,20 @@ def main_extract(config):
         for filename in os.listdir(input_dir):
             print(f"Extracting data from {filename}")
             file_path = os.path.join(input_dir, filename)
-            if os.path.isfile(file_path):
-                try:
-                    invoice = extract_from_multiple_pages(file_path)
-                    link = upload_file_to_dropbox(config, file_path)
-                    print(invoice)
-                    invoice[0]['invoice_summary']['dropbox_link'] = link
-                    print(invoice)
-                    write_invoice(config, invoice)
-                    write_invoice_summary_to_csv(config, invoice)  # Add this line
-                except Exception as e:
-                    print(f"Error processing file {filename}: {str(e)}")
-                    continue
+            process_file(config, filename)
+
+def process_file(config, file_path):
+    if os.path.isfile(file_path):
+        try:
+            invoice = extract_from_multiple_pages(file_path)
+            link = upload_file_to_dropbox(config, file_path)
+            print(invoice)
+            invoice[0]['invoice_summary']['dropbox_link'] = link
+            print(invoice)
+            write_invoice(config, invoice)
+            write_invoice_summary_to_csv(config, invoice)
+        except Exception as e:
+            print(f"Error processing file {file_path}: {str(e)}")
 
 def get_safe_filename(invoice_data):
     # Handle both single invoice and list of invoices
@@ -319,4 +321,9 @@ config = load_config(config_file)
 dropbox_access_token = get_dropbox_token(creds_file)
 print("config: ", config)
 config["dropbox_access_token"] = dropbox_access_token
-main_extract(config)
+testfiles = [r"C:\Users\aviv\source\repos\kabalot-ai\in - Copy\IMG-20230401-WA0003.jpg"]
+if testfiles:
+    for testfile in testfiles:
+        process_file(config, testfile)
+else:
+    main_extract(config)
