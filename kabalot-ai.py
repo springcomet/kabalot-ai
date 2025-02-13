@@ -68,7 +68,7 @@ def jpg_to_base64_images(jpg_file_path):
 def extract_invoice_data(base64_image):
     if test_config and test_config.get("mock_openai"):
         print("Using mock OpenAI response")
-        j = {'Details of Services Charged': [{'City': 'הרצליה', 'Zone': 'אזור התעשיה', 'License Plate': '62-728-55', 'Start Time': '15/01/2024 08:50', 'To Time': '15/01/2024 10:14', 'Minutes': '83:19', 'Charge': '8.61'}, {'City': 'רמת גן', 'Zone': 'הבימה ת\"א חניון הבימה והיכל התרבות', 'License Plate': '91-600-11', 'Start Time': '26/12/2023 14:41', 'To Time': '26/12/2023 16:06', 'Minutes': '84:46', 'Charge': '8.90'}, {'City': 'תל-אביב', 'Zone': 'מרכז העיר 17:00-חניה חופשית או חניה בתשלום באזור', 'License Plate': '91-600-11', 'Start Time': '24/01/2024 07:57', 'To Time': '24/01/2024 09:38', 'Minutes': '38:04', 'Charge': '7.87'}], 'invoice_summary': {'total_charge': '25.38', 'date_of_invoice': '3/9/24', 'invoice_number': None, 'expense_type': 'vehicle', 'type_code':'c'}}
+        j = {'Details of Services Charged': [{'City': 'הרצליה', 'Zone': 'אזור התעשיה', 'License Plate': '62-728-55', 'Start Time': '15/01/2024 08:50', 'To Time': '15/01/2024 10:14', 'Minutes': '83:19', 'Charge': '8.61'}, {'City': 'רמת גן', 'Zone': 'הבימה ת\"א חניון הבימה והיכל התרבות', 'License Plate': '91-600-11', 'Start Time': '26/12/2023 14:41', 'To Time': '26/12/2023 16:06', 'Minutes': '84:46', 'Charge': '8.90'}, {'City': 'תל-אביב', 'Zone': 'מרכז העיר 17:00-חניה חופשית או חניה בתשלום באזור', 'License Plate': '91-600-11', 'Start Time': '24/01/2024 07:57', 'To Time': '24/01/2024 09:38', 'Minutes': '38:04', 'Charge': '7.87'}], 'invoice_summary': {'total_charge': '25.38', 'date_of_invoice': '3/9/24', 'invoice_number': "1234567890", 'expense_type': 'vehicle', 'type_code':'c'}}
         return json.dumps(j, ensure_ascii=False, indent=4)
     
     
@@ -170,7 +170,8 @@ def process_file(config, file_path):
             invoice[0]['invoice_summary']['dropbox_link'] = link
             print(invoice)
             write_invoice(config, invoice)
-            write_invoice_summary_to_csv(config, invoice)
+            #write_invoice_summary_to_csv(config, invoice)
+            write_invoice_summary_to_excel(config, invoice)
         except Exception as e:
             print(f"Error processing file {file_path}: {str(e)}")
 
@@ -244,7 +245,7 @@ def load_config(config_file):
         "input_dirs": "Input directories",
         "upload_path": "Upload path",
         "dropbox_path": "Dropbox path",
-        "csv_path": "CSV output path"  # Add this line
+        "excel_path": "Excel output path"  # Changed from csv_path to excel_pathrom csv_path to excel_path
     }
     
     with open(config_file, 'r', encoding='utf-8') as f:
@@ -312,6 +313,55 @@ def write_invoice_summary_to_csv(config, invoice_data):
             
     except Exception as e:
         print(f"Error writing to CSV: {str(e)}")
+        raise
+
+def write_invoice_summary_to_excel(config, invoice_data):
+    """Write invoice summary data to Excel file."""
+    from openpyxl import Workbook, load_workbook
+    import os
+
+    excel_path = config["excel_path"]  # Change config key from csv_path to excel_path
+    file_exists = os.path.isfile(excel_path)
+    
+    try:
+        # Get the invoice summary from the first page if it's a list
+        invoice_dict = invoice_data[0] if isinstance(invoice_data, list) else invoice_data
+        summary = invoice_dict.get('invoice_summary', {})
+        
+        # Define the fields we want to write
+        fields = ['invoice_number', 'date_of_invoice', 'total_charge', 
+                 'expense_type', 'input_file', 'dropbox_link', 'type_code']
+        
+        # Create directory if it doesn't exist
+        os.makedirs(os.path.dirname(excel_path), exist_ok=True)
+        
+        if file_exists:
+            # Load existing workbook
+            wb = load_workbook(excel_path)
+            ws = wb.active
+        else:
+            # Create new workbook and write headers
+            wb = Workbook()
+            ws = wb.active
+            ws.title = "Invoice Summary"
+            for col, field in enumerate(fields, start=1):
+                ws.cell(row=1, column=col, value=field)
+            print("Wrote Excel header")
+
+        # Get the next empty row
+        next_row = ws.max_row + 1 if file_exists else 2
+        
+        # Write the data
+        for col, field in enumerate(fields, start=1):
+            ws.cell(row=next_row, column=col, value=summary.get(field, ''))
+        
+        # Save the workbook
+        wb.save(excel_path)
+        print(f"Writing to Excel file: {excel_path}")
+        print(f"Wrote invoice summary for invoice {summary.get('invoice_number', 'unknown')}")
+            
+    except Exception as e:
+        print(f"Error writing to Excel: {str(e)}")
         raise
 
 # Example usage
