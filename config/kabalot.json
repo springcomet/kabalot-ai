@@ -1,9 +1,0 @@
-{
-    "dropbox_path": "/",
-    "input_dirs": [
-        "./in"
-   ],
-    "output_dir": "./out",
-    "upload_path": "/25/",
-    "csv_path": "./out/kabalot.csv"
-}
