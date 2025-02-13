@@ -320,7 +320,7 @@ def write_invoice_summary_to_excel(config, invoice_data):
     from openpyxl import Workbook, load_workbook
     import os
 
-    excel_path = config["excel_path"]  # Change config key from csv_path to excel_path
+    excel_path = config["excel_path"]
     file_exists = os.path.isfile(excel_path)
     
     try:
@@ -336,11 +336,9 @@ def write_invoice_summary_to_excel(config, invoice_data):
         os.makedirs(os.path.dirname(excel_path), exist_ok=True)
         
         if file_exists:
-            # Load existing workbook
             wb = load_workbook(excel_path)
             ws = wb.active
         else:
-            # Create new workbook and write headers
             wb = Workbook()
             ws = wb.active
             ws.title = "Invoice Summary"
@@ -364,6 +362,22 @@ def write_invoice_summary_to_excel(config, invoice_data):
         print(f"Error writing to Excel: {str(e)}")
         raise
 
+def test_extract(config, test_config):
+    if test_config["clean_output"]:
+        print("Cleaning output directory")
+        output_dir = config["output_dir"]
+        if os.path.exists(output_dir):
+            for filename in os.listdir(output_dir):
+                file_path = os.path.join(output_dir, filename)
+                os.remove(file_path)
+            print(f"Cleaned {output_dir}")
+    if test_config.get("test_files"):
+        print("Processing test files")
+        for test_file in test_config["test_files"]:
+            process_file(config, test_file)
+
+ 
+
 # Example usage
 api_key = os.getenv("OPENAI_API_KEY")
 client = OpenAI(api_key=api_key)
@@ -379,12 +393,11 @@ config["dropbox_access_token"] = dropbox_access_token
 test_config = {
     "test_files": [r"C:\Users\aviv\source\repos\kabalot-ai\in - Copy\IMG-20230401-WA0003.jpg"],
     "mock_openai": True,
-    "mock_dropbox": True
+    "mock_dropbox": True,
+    "clean_output": True
 }
 
-if test_config and test_config.get("test_files"):
-    print("Processing test files")
-    for test_file in test_config["test_files"]:
-        process_file(config, test_file)
+if test_config:
+    test_extract(config, test_config)
 else:
     main_extract(config)
