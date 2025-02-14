@@ -98,15 +98,17 @@ def extract_invoice_data(base64_image):
 
     10. if the invoice is a vehicle related purchase the expected vehicle number is 9160011
 
-    11. try to deduce if the type of invoice, i.e. what is it for.
-    use the following possible expense types and mark them both in english and with the code in braces:
-    parking (p), gas (g), other vehicle expenses (c), clothing (b), office (m), supplies and equipment (s),
-    maintenance and repair (9), food and refreshment (f). If you can't deduce the expense type, mark it as "?". 
-    
-    12. add a last group named invoice_summary which repeats the values of the total charge, date of invoice, and invoice number. 
+    11. add a last group named invoice_summary which repeats the values of the total charge, date of invoice, and invoice number. 
     these values should also be included in the relevant group and repeated in this group. 
     unlike other groups, in this group the key names should be in english as specified here.
-    add to the group the expense type and type code.
+    make sure the total_charge is a number and not a string.
+
+    12. try to deduce if the type of invoice, i.e. what is it for.
+    use the following possible expense types and mark them both in english and with the code in parenthesis:
+    parking (p), gas (g), other vehicle expenses (c), clothing (b), office (m), supplies and equipment (s),
+    maintenance and repair (9), food and refreshment (f). If you can't deduce the expense type, mark it as "?". 
+    add the expense type name and the expense type code in separate fields, expense_type and type_code respectively,
+    to the invoice_summary grouped mentioned above.
     """
     
     response = client.chat.completions.create(
@@ -443,7 +445,9 @@ print("config: ", config)
 config["dropbox_access_token"] = dropbox_access_token
 
 test_config = {
-   # "test_files": [r"C:\Users\aviv\source\repos\kabalot-ai\in - Copy\IMG-20230401-WA0003.jpg"],
+    "test_files": [
+        r"C:\Users\aviv\source\repos\kabalot-ai\in - Copy\IMG-20230401-WA0003.jpg",
+        r"C:\Users\aviv\source\repos\kabalot-ai\in\38aaca37-3357-441c-94f5-6d1d051c8979_195011215Sign.pdf"],
     "mock_openai": False,
     "mock_dropbox": True,
     "clean_output": True
