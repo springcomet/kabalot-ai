@@ -159,7 +159,9 @@ def main_extract(config):
         for filename in os.listdir(input_dir):
             print(f"Extracting data from {filename}")
             file_path = os.path.join(input_dir, filename)
-            process_file(config, filename)
+            process_file(config, file_path)
+    # Write Excel summary after processing all files
+    write_invoice_summary_to_excel(config)
 
 def process_file(config, file_path):
     if os.path.isfile(file_path):
@@ -170,8 +172,6 @@ def process_file(config, file_path):
             invoice[0]['invoice_summary']['dropbox_link'] = link
             print(invoice)
             write_invoice(config, invoice)
-            #write_invoice_summary_to_csv(config, invoice)
-            write_invoice_summary_to_excel(config, invoice)
         except Exception as e:
             print(f"Error processing file {file_path}: {str(e)}")
 
@@ -315,68 +315,120 @@ def write_invoice_summary_to_csv(config, invoice_data):
         print(f"Error writing to CSV: {str(e)}")
         raise
 
-def write_invoice_summary_to_excel(config, invoice_data):
-    """Write invoice summary data to Excel file."""
-    from openpyxl import Workbook, load_workbook
-    import os
+import os
+import json
+from openpyxl import Workbook, load_workbook
 
-    excel_path = config["excel_path"]
-    file_exists = os.path.isfile(excel_path)
+import os
+import json
+from openpyxl import Workbook, load_workbook
+
+import os
+import json
+from openpyxl import Workbook, load_workbook
+
+def write_invoice_summary_to_excel(config):
+    """Aggregate JSON invoice data and write to an Excel file with a pivot table using Excel's PIVOTBY formula."""
     
-    try:
-        # Get the invoice summary from the first page if it's a list
-        invoice_dict = invoice_data[0] if isinstance(invoice_data, list) else invoice_data
-        summary = invoice_dict.get('invoice_summary', {})
+    excel_path = config["excel_path"]
+    json_dir = config["output_dir"]
+    
+    print(f"\nStarting Excel summary generation...")
+    print(f"Reading JSON files from: {json_dir}")
+    print(f"Writing to Excel file: {excel_path}")
+    
+    # Define the fields
+    fields = ['invoice_number', 'date_of_invoice', 'total_charge', 'expense_type', 'input_file', 'dropbox_link', 'type_code']
+    
+    # Check if file exists and load it, otherwise create a new workbook
+    if os.path.exists(excel_path):
+        print(f"Loading existing Excel file: {excel_path}")
+        wb = load_workbook(excel_path)
+        ws = wb["Invoice Summary"] if "Invoice Summary" in wb.sheetnames else wb.active
+        print(f"Using worksheet: {ws.title}")
+    else:
+        print("Creating new Excel workbook")
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Invoice Summary"
+        ws.append(fields)
+        print("Added header row with fields")
+    
+    # Find the next empty row
+    next_row = ws.max_row + 1
+    print(f"Starting data write from row: {next_row}")
+    
+    # Count files for progress tracking
+    json_files = [f for f in os.listdir(json_dir) if f.endswith(".json")]
+    total_files = len(json_files)
+    processed_files = 0
+    
+    print(f"\nFound {total_files} JSON files to process")
+    
+    # Collect and write all JSON data
+    for file in json_files:
+        processed_files += 1
+        print(f"\nProcessing file {processed_files}/{total_files}: {file}")
         
-        # Define the fields we want to write
-        fields = ['invoice_number', 'date_of_invoice', 'total_charge', 
-                 'expense_type', 'input_file', 'dropbox_link', 'type_code']
-        
-        # Create directory if it doesn't exist
-        os.makedirs(os.path.dirname(excel_path), exist_ok=True)
-        
-        if file_exists:
-            wb = load_workbook(excel_path)
-            ws = wb.active
-        else:
-            wb = Workbook()
-            ws = wb.active
-            ws.title = "Invoice Summary"
-            for col, field in enumerate(fields, start=1):
-                ws.cell(row=1, column=col, value=field)
-            print("Wrote Excel header")
-
-        # Get the next empty row
-        next_row = ws.max_row + 1 if file_exists else 2
-        
-        # Write the data
-        for col, field in enumerate(fields, start=1):
-            ws.cell(row=next_row, column=col, value=summary.get(field, ''))
-        
-        # Save the workbook
-        wb.save(excel_path)
-        print(f"Writing to Excel file: {excel_path}")
-        print(f"Wrote invoice summary for invoice {summary.get('invoice_number', 'unknown')}")
+        file_path = os.path.join(json_dir, file)
+        with open(file_path, 'r', encoding='utf-8') as f:
+            invoice_data = json.load(f)
+            invoice_dict = invoice_data[0] if isinstance(invoice_data, list) else invoice_data
+            summary = invoice_dict.get('invoice_summary', {})
             
-    except Exception as e:
-        print(f"Error writing to Excel: {str(e)}")
-        raise
+            # Convert total_charge to float
+            total_charge = summary.get('total_charge', '')
+            if isinstance(total_charge, str) and total_charge:
+                try:
+                    total_charge = float(total_charge.replace(',', ''))
+                    summary['total_charge'] = total_charge
+                    print(f"Converted total charge: {total_charge}")
+                except ValueError:
+                    print(f"Warning: Could not convert total charge to float: {total_charge}")
+            
+            row_data = [summary.get(field, '') for field in fields]
+            ws.append(row_data)
+            print(f"Added row for invoice: {summary.get('invoice_number', 'unknown')}")
+    
+    print("\nFormatting total_charge column as currency")
+    # Format the total_charge column (column C) as currency
+    for row in range(2, ws.max_row + 1):
+        cell = ws.cell(row=row, column=3)  # Column C (total_charge)
+        cell.number_format = '#,##0.00₪'
+    
+    print("\nCreating Pivot Summary sheet")
+    # Create Pivot Table on a new sheet
+    pivot_ws = wb["Pivot Summary"] if "Pivot Summary" in wb.sheetnames else wb.create_sheet(title="Pivot Summary")
+    pivot_ws.append(["Expense Type Code", "Total Amount Paid"])
+    
+    # Determine the exact data range
+    formula = f"=PIVOTBY('Invoice Summary'!G2:G{ws.max_row}, , 'Invoice Summary'!C2:C{ws.max_row}, LAMBDA(x, SUM(x)))"
+    pivot_ws["B2"] = formula
+    print(f"Added pivot formula: {formula}")
+    
+    # Save the workbook
+    wb.save(excel_path)
+    print(f"\nExcel file successfully updated: {excel_path}")
+    print(f"Processed {processed_files} files")
+    print("Excel summary generation complete")
 
-def test_extract(config, test_config):
-    if test_config["clean_output"]:
-        print("Cleaning output directory")
-        output_dir = config["output_dir"]
-        if os.path.exists(output_dir):
-            for filename in os.listdir(output_dir):
-                file_path = os.path.join(output_dir, filename)
-                os.remove(file_path)
-            print(f"Cleaned {output_dir}")
+def test_extract(config):
     if test_config.get("test_files"):
         print("Processing test files")
         for test_file in test_config["test_files"]:
             process_file(config, test_file)
+        # Write Excel summary after processing all files
+        write_invoice_summary_to_excel(config)
 
- 
+def clean_output_directory(config):
+    print("Cleaning output directory")
+    output_dir = config["output_dir"]
+    if os.path.exists(output_dir):
+        for filename in os.listdir(output_dir):
+            file_path = os.path.join(output_dir, filename)
+            os.remove(file_path)
+        print(f"Cleaned {output_dir}")
+
 
 # Example usage
 api_key = os.getenv("OPENAI_API_KEY")
@@ -391,13 +443,16 @@ print("config: ", config)
 config["dropbox_access_token"] = dropbox_access_token
 
 test_config = {
-    "test_files": [r"C:\Users\aviv\source\repos\kabalot-ai\in - Copy\IMG-20230401-WA0003.jpg"],
-    "mock_openai": True,
+   # "test_files": [r"C:\Users\aviv\source\repos\kabalot-ai\in - Copy\IMG-20230401-WA0003.jpg"],
+    "mock_openai": False,
     "mock_dropbox": True,
     "clean_output": True
 }
 
-if test_config:
-    test_extract(config, test_config)
+if test_config.get("clean_output"):
+    clean_output_directory(config)
+
+if test_config.get("test_files"):
+    test_extract(config)
 else:
     main_extract(config)
