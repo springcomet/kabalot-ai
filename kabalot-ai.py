@@ -221,6 +221,13 @@ def write_invoice(config, invoice):
         os.makedirs(output_dir)
     filename = get_safe_filename(invoice)
     output_file = os.path.join(output_dir, filename)
+    # Check if the file already exists and add a numerical postfix if necessary
+    base_name, ext = os.path.splitext(output_file)
+    counter = 1
+    while os.path.exists(output_file):
+        output_file = f"{base_name}_{counter}{ext}"
+        counter += 1
+
     with open(output_file, 'w', encoding='utf-8') as f:
         json.dump(invoice, f, ensure_ascii=False, indent=4)
     print(f"Data written to {output_file}")
@@ -351,7 +358,7 @@ def write_invoice_summary_to_excel(config):
     print(f"Writing to Excel file: {excel_path}")
     
     # Define the fields
-    fields = ['invoice_number', 'date_of_invoice', 'total_charge', 'expense_type', 'input_file', 'dropbox_link', 'type_code']
+    fields = ['company_id', 'invoice_number', 'date_of_invoice', 'total_charge', 'expense_type', 'input_file', 'dropbox_link', 'type_code']
     
     # Check if file exists and load it, otherwise create a new workbook
     if os.path.exists(excel_path):
@@ -459,6 +466,7 @@ test_config = {
      "test_files": [
     #     r"C:\Users\aviv\source\repos\kabalot-ai\in - Copy\IMG-20230401-WA0003.jpg",
     #     r"C:\Users\aviv\source\repos\kabalot-ai\in\38aaca37-3357-441c-94f5-6d1d051c8979_195011215Sign.pdf"],
+    r"C:\Users\aviv\source\repos\kabalot-ai\in\2024-10-26 12-11.pdf",
     r"C:\Users\aviv\source\repos\kabalot-ai\in\2024-10-26 12-11.pdf"],
     "mock_openai": False,
     "mock_dropbox": True,
