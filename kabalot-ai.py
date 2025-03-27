@@ -358,7 +358,7 @@ def write_invoice_summary_to_excel(config):
     print(f"Writing to Excel file: {excel_path}")
     
     # Define the fields
-    fields = ['company_id', 'invoice_number', 'date_of_invoice', 'total_charge', 'expense_type', 'input_file', 'dropbox_link', 'type_code']
+    fields = ['type_code','total_charge','company_id', 'invoice_number', 'date_of_invoice', 'input_file', 'dropbox_link', 'expense_type']
     
     # Check if file exists and load it, otherwise create a new workbook
     if os.path.exists(excel_path):
