@@ -75,39 +75,42 @@ def extract_invoice_data(base64_image):
     system_prompt = f"""
     You are an OCR-like data extraction tool that extracts invoice data from PDFs.
    
-    1. extract the data in this invoice, grouping data according to theme/sub groups, and then output into JSON.
+    * extract the data in this invoice, grouping data according to theme/sub groups, and then output into JSON.
 
-    2. keep the keys and values of the JSON in the original language. use native characters for the keys and values,
+    * keep the keys and values of the JSON in the original language. use native characters for the keys and values,
     dont encode them to characters like "utf-8" or "ascii".
 
-    3. The type of data you might encounter in the invoice includes but is not limited to: supplier information such as name and identity number, itemized charges, invoice information,
-   such as invoice number, taxes such as vat amount or price before vat, and total charges etc. 
+    * The type of data you might encounter in the invoice includes but is not limited to: supplier information such as name and identity number, itemized charges, invoice information,
+    such as invoice number, taxes such as vat amount or price before vat, and total charges etc. 
 
-    4. If the page contains no charge data, output an empty JSON object and don't make up any data.
+    * If the page contains no charge data, output an empty JSON object and don't make up any data.
 
-    5. If there are blank data fields in the invoice, include them as "null" values in the JSON object.
+    * If there are blank data fields in the invoice, include them as "null" values in the JSON object.
     
-    6. If there are tables in the invoice, capture all of the rows and columns in the JSON object. 
+    * If there are tables in the invoice, capture all of the rows and columns in the JSON object. 
     Even if a column is blank, include it as a key in the JSON object with a null value.
     
-    7. If a row is blank denote missing fields with "null" values. 
+    * If a row is blank denote missing fields with "null" values. 
     
-    8. Don't interpolate or make up data.
+    * Don't interpolate or make up data. use only the data that is in the invoice.
 
-    9. Please maintain the table structure of the charges, i.e. capture all of the rows and columns in the JSON object.
+    * Please maintain the table structure of the charges, i.e. capture all of the rows and columns in the JSON object.
 
-    11. add a last group named invoice_summary which repeats the values of the total charge, date of invoice, and invoice number. 
+    * add a last group named invoice_summary which repeats the values of the following fields with the field names designated below:
+    total charge including vat: total_charge,
+    date of invoice: date,
+    invoice number: invoice_number. 
     these values should also be included in the relevant group and repeated in this group. 
     unlike other groups, in this group the key names should be in english as specified here.
     
-    12. make sure the total_charge is a number and not a string. make sure the total charge includes vat if it is included in the invoice.
+    * make sure the total_charge is a number and not a string. 
+    make sure the total charge includes vat if it is included in the invoice.
     it is unlikely that vat is not payed.
-    total charge will not include vat typically but not neccessarily is tagged by "סהכ לתשלום" in the invoice
-    or "סהכ לתשלום כולל מעמ".
-    if the total charge does not include vat or the vat value is 0 then verify again that the total charge was extracted correctly.
-    if vat was not specified inn the invoice or was 0 then specify that in the JSON object.
+    total charge that does include vat will typically but not neccessarily be tagged by "סהכ לתשלום" or "סהכ לתשלום כולל מעמ".
+    if the total charge does not include vat or the vat value is 0 then verify that the total charge was extracted correctly.
+    if vat was not specified in the invoice or was 0 then specify that in the JSON object.
 
-    13. try to deduce if the type of invoice, i.e. what is it for.
+    * try to deduce if the type of invoice, i.e. what is it for.
     use the following possible expense types and mark them both in english and with the code in parenthesis:
     parking (p), gas (g), other vehicle expenses (c), clothing (b), office (m), supplies and equipment (s),
     maintenance and repair (9), food and refreshment (f). If you can't deduce the expense type, mark it as "?". 
@@ -115,17 +118,19 @@ def extract_invoice_data(base64_image):
     to the invoice_summary grouped mentioned above.
     internet services such as hosting, domain registration and chatgpt should be marked as office (m).
 
-    14. if the invoice is for a vehicle related purchase such as parking or gas only add the the amounts to the total charge 
-    that are associated to vehicle with registration number 9160011 or 27228903. add the number of items actually added to the total charge
-    to the invoice_summary group as the field related_items and the total number of items in the invoice regardless of registration number
-    as total_items. if the ticket is not for a vehicle related purchase then add all the items to the total charge and dont add the
-    related_items and the total_items fields to the invoice_summary group. 
+    * car insurance should be marked as other vehicle expenses (c).
+    the total charge will be specified like the examples below:
+    'התשלום החודשי עבור כיסוי לנהג צעיר במסלול ישיר צעיר, אותו רכשת במסגרת הפוליסה הינו ₪213' -> total_charge is 213
+    'התשלום החודשי עבור כיסוי לנהג צעיר במסלול ישיר צעיר, אותו רכשת במסגרת הפוליסה הינו ₪105' -> total_charge is 105
+
+    * if the invoice is for a vehicle related purchase such as parking or gas only sum the amounts 
+    that are associated to vehicle with registration number 9160011 or 27228903 to the total charge field in the invoice_summary group.
     
-    15. add the company idenity number to the invoice_summary group as the field company_id. the identy number typically starts with the digits 51
+    * add the company idenity number to the invoice_summary group as the field company_id. the identityy number typically starts with the digits 51
     and is tagged with the hebrew word ח.פ. in the invoice. it might also be tagged with the hebrew "עוסק מורשה".
 
-    16. if the invoice is in a foreign currency, i.e. not in israeli shekels, add a field named currency to the invoice_summary group with the currency name.
-    add the exchange rate for that currency against the israeli shekel at the date of the invoice as the field exchange_rate to the invoice_summary group..
+    * add a field named currency to the invoice_summary group with the actual invoice currency name.
+    if the currency is not specified in the invoice then assume it is shekels (ILS) and add the field with the value ILS.
     
     """
     
@@ -358,7 +363,7 @@ def write_invoice_summary_to_excel(config):
     print(f"Writing to Excel file: {excel_path}")
     
     # Define the fields
-    fields = ['type_code','total_charge','company_id', 'invoice_number', 'date_of_invoice', 'input_file', 'dropbox_link', 'expense_type']
+    fields = ['type_code','total_charge','dropbox_link', 'date_of_invoice','currency','company_id', 'invoice_number',  'input_file',  'expense_type']
     
     # Check if file exists and load it, otherwise create a new workbook
     if os.path.exists(excel_path):
@@ -422,7 +427,7 @@ def write_invoice_summary_to_excel(config):
     pivot_ws.append(["Expense Type Code", "Total Amount Paid"])
     
     # Determine the exact data range
-    formula = f"=PIVOTBY('Invoice Summary'!G2:G{ws.max_row}, , 'Invoice Summary'!C2:C{ws.max_row}, LAMBDA(x, SUM(x)))"
+    formula = f"=PIVOTBY('Invoice Summary'!A2:A{ws.max_row}, , 'Invoice Summary'!B2:B{ws.max_row}, LAMBDA(x, SUM(x)))"
     pivot_ws["B2"] = formula
     print(f"Added pivot formula: {formula}")
     
@@ -466,17 +471,18 @@ test_config = {
      "test_files": [
     #     r"C:\Users\aviv\source\repos\kabalot-ai\in - Copy\IMG-20230401-WA0003.jpg",
     #     r"C:\Users\aviv\source\repos\kabalot-ai\in\38aaca37-3357-441c-94f5-6d1d051c8979_195011215Sign.pdf"],
-    r"C:\Users\aviv\source\repos\kabalot-ai\in\2024-10-26 12-11.pdf",
-    r"C:\Users\aviv\source\repos\kabalot-ai\in\2024-10-26 12-11.pdf"],
+    #r"C:\Users\aviv\source\repos\kabalot-ai\in\2024-10-26 12-11.pdf",
+    #r"C:\Users\aviv\source\repos\kabalot-ai\in\2024-10-26 12-11.pdf"
+    ],
     "mock_openai": False,
-    "mock_dropbox": True,
-    "clean_output": True
+    "mock_dropbox": False,
+    "clean_output": True,
 }
 
 if test_config.get("clean_output"):
     clean_output_directory(config)
 
-if test_config.get("test_files"):
+if test_config.get("test_files") and len(test_config["test_files"]) > 0:
     test_extract(config)
 else:
     main_extract(config)
